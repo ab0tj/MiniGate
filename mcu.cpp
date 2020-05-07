@@ -116,10 +116,9 @@ void initPtt()
     }
 }
 
-float read_adc_mcu(int a, int scale)
+uint read_mcu_adc(int a)
 {
     unsigned int val;
-    float retVal;
 
     do
     {
@@ -128,14 +127,7 @@ float read_adc_mcu(int a, int scale)
         val = spiTrxWord(0xFFFF);
     } while (val > 0x3ff);      // Filter invalid results
 
-    if (scale)
-    {
-        retVal = (float)val + Config::adc[a].offset;
-        retVal *= Config::adc[a].scale;
-    }
-    else retVal = val;
-    
-    return retVal;
+    return val;
 }
 
 void get_ptt_status(unsigned char p)

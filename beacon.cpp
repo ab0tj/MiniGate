@@ -4,36 +4,36 @@
 #include <string>
 #include <sstream>
 #include <iostream>
+#include <iomanip>
 #include "config.h"
 #include "util.h"
+#include "sensor.h"
 #include "mcu.h"
-
-#define SEQFILE "/tmp/minigate.seq"
 
 namespace Beacon
 {
     unsigned int getSeqNum()
     {
         /* Return the next sequence number, or make one up if we don't know the last one */
-        char buffer;
+        uint8_t buffer;
         size_t result;
-        unsigned int num = rand() % 256;
+        uint8_t num = rand();
 
         /* Open temp file */
-        FILE* tempFile = fopen(SEQFILE, "rb");
+        FILE* tempFile = fopen((Config::tmpFolder + "/sequence").c_str(), "rb");
         if (tempFile != NULL)
         {
-            result = fread(&buffer, sizeof(char), 1, tempFile);
+            result = fread(&buffer, sizeof(uint8_t), 1, tempFile);
             if (result) num = buffer;
 
             fclose(tempFile);
         }
 
         /* Save the next number to the temp file */
-        tempFile = fopen(SEQFILE, "wb");
+        tempFile = fopen((Config::tmpFolder + "/sequence").c_str(), "wb");
         if (tempFile == NULL)
         {
-            fprintf(stderr, "Could not open %s for writing!", SEQFILE);
+            fprintf(stderr, "Could not open %s for writing!", (Config::tmpFolder + "/sequence").c_str());
             exit(1);
         }
 
@@ -65,6 +65,7 @@ namespace Beacon
         /* Generate a beacon string */
         int textSz = text.length();
         std::stringstream ss;
+        ss << std::fixed;
 
         /* Look through the beacon string and make substitutions */
         for (int i=0; i<textSz; i++)
@@ -74,13 +75,13 @@ namespace Beacon
                 int param = text[i+2] - '0';
                 switch (text[i+1])
                 {
-                    case 'a':   // Scaled ADC value
-                        ss << std::setprecision(Config::adc[param].precision) << read_adc(param, 1);
+                    case 'a':   // Scaled sensor value
+                        ss << std::setprecision(Sensor::sensors[param].precision) << Sensor::sensors[param].Read(false);
                         i += 2;
                         break;
 
-                    case 'A':   // Raw ADC value
-                        ss << std::setprecision(0) << read_adc(param, 0);
+                    case 'A':   // Raw sensor value
+                        ss << std::setprecision(0) << Sensor::sensors[param].Read(true);
                         i += 2;
                         break;
 
@@ -90,7 +91,7 @@ namespace Beacon
                         break;
 
                     case 'C':   // Station callsign, fixed width
-                        ss << setw(9) << std::left << Config::myCall << setw(0);
+                        ss << std::setw(9) << std::left << Config::myCall << std::setw(0);
                         i++;
                         break;
 
@@ -105,13 +106,8 @@ namespace Beacon
                         break;
 
                     case 's':   // Sequence number
-                        ss << setfill('0') << setw(3) << getSeqNum());
-                        ss << setfill(' ') << setw(0);
-                        i++;
-                        break;
-
-                    case 't':   // Temperature value
-                        ss << std::setprecision(Config::tempPrecision) << read_temp();
+                        ss << std::setfill('0') << std::setw(3) << getSeqNum();
+                        ss << std::setfill(' ') << std::setw(0);
                         i++;
                         break;
 

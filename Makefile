@@ -1,6 +1,6 @@
 C=g++
 CFLAGS=-c -Wall
-OBJS=main.o ini.o config.o mcu.o beacon.o util.o
+OBJS=main.o ini.o config.o mcu.o beacon.o util.o sensor.o
 
 all: minigate
 
@@ -24,6 +24,9 @@ beacon.o: beacon.cpp
 
 util.o: util.cpp
 	$(C) $(CFLAGS) -o util.o util.cpp
+
+sensor.o: sensor.cpp
+	$(C) $(CFLAGS) -o sensor.o sensor.cpp
 
 clean:
 	rm -f minigate $(OBJS)

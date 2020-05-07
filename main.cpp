@@ -3,41 +3,46 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include "ini.h"
 #include "config.h"
 #include "mcu.h"
 #include "beacon.h"
 #include "util.h"
+#include "sensor.h"
 
 void show_help(const char* cmdline)
 {
-    printf("Usage: %s [-abBcdDisv]\n", cmdline);
-    printf("  -a <adc>\tRead ADC\n");
+    printf("Usage: %s [options]\n", cmdline);
     printf("  -b <num>\tGenerate APRS beacon string from config\n");
     printf("  -B <string>\tGenerate APRS beacon string from command line\n");
-    printf("  -c\t\tSpecify config file (default is /etc/minigate.conf)\n");
+    printf("  -c <file>\tSpecify config file (default is /etc/minigate.conf)\n");
     printf("  -d\t\tPrint debugging info\n");
     printf("  -D\t\tRun as a daemon\n");
     printf("  -i\t\tInitialize MCU\n");
-    printf("  -r\t\tRaw ADC output\n");
-    printf("  -s <ptt>\tPrint PTT status\n");
-    printf("  -t\t\tPrint temperature\n");
-    printf("  -x\t\tReset MCU\n");
+    printf("  -r\t\tRaw sensor output\n");
+    printf("  -p <ptt>\tPrint PTT status\n");
+    printf("  -s <num>\tRead sensor\n");
     printf("  -v\t\tBe verbose\n");
+    printf("  -x\t\tReset MCU\n");
     printf("\n");
 }
 
 int main(int argc, char **argv)
 {
-    int opt, do_init = 0, adc = -1, stat = -1, printTemp = 0, scaled = 1, reset = 0, daemon = 0, do_beacon = -1;
+    int opt, do_init = 0, sensor = -1, pttStat = -1, scaled = 1, reset = 0, daemon = 0, do_beacon = -1;
     char *beaconText, *configFile = NULL;
 
+    /* Parse command line arguments */
     if (argc == 1)
     {
         show_help(argv[0]);
         return 1;
     }
-    while((opt = getopt(argc, argv, ":vidDb:B:trxc:s:a:")) != -1)
+    while((opt = getopt(argc, argv, "b:B:c:dDirp:s:vx")) != -1)
     {
         switch(opt)
         {
@@ -59,16 +64,12 @@ int main(int argc, char **argv)
                 do_init = 1;
                 break;
 
-            case 'a':   // Read ADC
-                adc = atoi(optarg);
+            case 's':   // Read sensor
+                sensor = atoi(optarg);
                 break;
 
-            case 's':   // Get PTT status
-                stat = atoi(optarg);
-                break;
-
-            case 't':   // Print temperature
-                printTemp = 1;
+            case 'p':   // Get PTT status
+                pttStat = atoi(optarg);
                 break;
 
             case 'b':   // Generate an APRS status beacon string from config values
@@ -85,7 +86,7 @@ int main(int argc, char **argv)
                 configFile = optarg;
                 break;
 
-            case 'r':   // Raw ADC output
+            case 'r':   // Raw sensor output
                 scaled = 0;
                 break;
 
@@ -99,6 +100,7 @@ int main(int argc, char **argv)
         }
     }
 
+    /* Do initialization things */
     initSpi();
 
     if (configFile == NULL)
@@ -112,7 +114,6 @@ int main(int argc, char **argv)
         fprintf(stderr, "Could not load %s\n", configFile);
         return 1;
     }
-    if (Config::tempUnit != 'F' && Config::tempUnit != 'K') Config::tempUnit = 'C';
 
     if (reset) resetMcu();
 
@@ -122,10 +123,22 @@ int main(int argc, char **argv)
 
     usleep(100000); // Let MCU's SPI counter reset
 
+    /* Let's do some other initialization things in the mean time... */
+    /* Create the temp dir if it doesn't exist */
+    mode_t dirMode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
+    if ((mkdir(Config::tmpFolder.c_str(), dirMode) != 0) && (errno != EEXIST))
+    {
+        fprintf(stderr, "Could not create temp folder! (%d)\n", errno);
+        exit(1);
+    }
+
+    /* Seed the RNG */
+    srand(time(NULL));
+
+    /* Now we'll move on to doing what the user requested */
     if (do_beacon >= 0) std::cout << Config::beacons[do_beacon].getString() << '\n';
     if (do_beacon == -2) std::cout << Beacon::Parse(beaconText) << '\n';
-    if (stat != -1) get_ptt_status(stat);
-    if (adc != -1) printf("%g\n", scaled ? fround(read_adc(adc, 1), Config::adc[adc].precision) : read_adc(adc, 0));
-    if (printTemp) printf("%g%c\n", fround(read_temp(), Config::tempPrecision), Config::tempUnit);
+    if (pttStat != -1) get_ptt_status(pttStat);
+    if (sensor != -1) printf("%g\n", scaled ? fround(Sensor::sensors[sensor].Read(false), Sensor::sensors[sensor].precision) : Sensor::sensors[sensor].Read(true));
     return 0;
 }

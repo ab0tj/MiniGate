@@ -6,14 +6,9 @@ namespace Config
 {
     std::vector<PttConfig> ptt;
     std::vector<Beacon::Beacon> beacons;
-    std::vector<ADC> adc;
-    char tempUnit;
-    char* tempFile;
-    unsigned int tempPrecision;
     std::string myCall;
     bool verbose;
     bool debug;
-    HardwareType hardwareType;
 
     int Parse(void* user, const char* section, const char* name, const char* value)
     {
@@ -22,7 +17,7 @@ namespace Config
         std::string s_value = std::string(value);
         uint secNum;
 
-        // ptt: enabled, timeout
+        /* PTT config */
         if (s_section.substr(0, 3).compare("ptt") == 0)
         {
             if (s_section.length() < 4) return 0;
@@ -40,6 +35,7 @@ namespace Config
             else return 0;
         }
         
+        /* Beacon config */
         else if (s_section.substr(0, 6).compare("beacon") == 0)
         {
             if (s_section.length() < 7) return 0;
@@ -61,82 +57,66 @@ namespace Config
             else return 0;
         }
 
-        else if (MATCH("adc0", "scale"))
+        /* Sensor config */
+        else if (s_section.substr(0, 6).compare("sensor") == 0)
         {
-            adc[0].scale = atof(value);
+            if (s_section.length() < 7) return 0;
+            secNum = std::stoi(s_section.substr(6));
+            if (secNum >= Sensor::sensors.size()) Sensor::sensors.resize(secNum + 1);
+
+            if (s_name.compare("scale") == 0)
+            {
+                Sensor::sensors[secNum].scale = atof(value);
+            }
+            else if (s_name.compare("precision") == 0)
+            {
+                Sensor::sensors[secNum].precision = atoi(value);
+            }
+            else if (s_name.compare("offset") == 0)
+            {
+                Sensor::sensors[secNum].offset = atof(value);
+            }
+            else if (s_name.compare("file") == 0)
+            {
+                Sensor::sensors[secNum].fileName = value;
+            }
+            else if (s_name.compare("mcu_adc_num") == 0)
+            {
+                Sensor::sensors[secNum].mcuAdcNum = atoi(value);
+            }
+            else if (s_name.compare("type") == 0)
+            {
+                if (s_value.compare("mcu_adc") == 0)
+                {
+                    Sensor::sensors[secNum].type = Sensor::Sensor_MCU_ADC;
+                }
+                else if (s_value.compare("file") == 0)
+                {
+                    Sensor::sensors[secNum].type = Sensor::Sensor_File;
+                }
+                else if (s_value.compare("hwmon") == 0)
+                {
+                    Sensor::sensors[secNum].type = Sensor::Sensor_HWMon;
+                }
+                else Sensor::sensors[secNum].type = Sensor::Sensor_None;
+            }
+            else if (s_name.compare("unit") == 0)
+            {
+                Sensor::sensors[secNum].unit = value[0];
+            }
+            else return 0;
         }
-        else if (MATCH("adc0", "precision"))
+
+        /* Station config */
+        else if (s_section.compare("station") == 0)
         {
-            adc[0].precision = atoi(value);
+            if (s_name.compare("mycall") == 0)
+            {
+                myCall = value;
+            }
+            else return 0;
         }
-        else if (MATCH("adc0", "offset"))
-        {
-            adc[0].offset = atof(value);
-        }
-        else if (MATCH("adc1", "scale"))
-        {
-            adc[1].scale = atof(value);
-        }
-        else if (MATCH("adc1", "precision"))
-        {
-            adc[1].precision = atoi(value);
-        }
-        else if (MATCH("adc1", "offset"))
-        {
-            adc[1].offset = atof(value);
-        }
-        else if (MATCH("adc2", "scale"))
-        {
-            adc[2].scale = atof(value);
-        }
-        else if (MATCH("adc2", "precision"))
-        {
-            adc[2].precision = atoi(value);
-        }
-        else if (MATCH("adc2", "offset"))
-        {
-            adc[2].offset = atof(value);
-        }
-        else if (MATCH("adc2", "file"))
-        {
-            adc[2].fileName = (char*)malloc(strlen(value) + 1);
-            strcpy(adc[2].fileName, value);
-        }
-        else if (MATCH("adc3", "scale"))
-        {
-            adc[1].scale = atof(value);
-        }
-        else if (MATCH("adc3", "precision"))
-        {
-            adc[1].precision = atoi(value);
-        }
-        else if (MATCH("adc3", "offset"))
-        {
-            adc[1].offset = atof(value);
-        }
-        else if (MATCH("adc3", "file"))
-        {
-            adc[3].fileName = (char*)malloc(strlen(value) + 1);
-            strcpy(adc[3].fileName, value);
-        }
-        else if (MATCH("temp", "unit"))
-        {
-            tempUnit = value[0];
-        }
-        else if (MATCH("temp", "file"))
-        {
-            tempFile = (char*)malloc(strlen(value) + 1);
-            strcpy(tempFile, value);
-        }
-        else if (MATCH("temp", "precision"))
-        {
-            tempPrecision = atoi(value);
-        }
-        else if (MATCH("station", "mycall"))
-        {
-            myCall = (char*)malloc(strlen(value) + 1);
-            strcpy(myCall, value);
-        }
+
         else return 0;
 
         return 1;
