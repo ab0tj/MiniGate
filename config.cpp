@@ -1,11 +1,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include "config.h"
+#include "beacon.h"
 
 namespace Config
 {
     std::vector<PttConfig> ptt;
-    std::vector<Beacon::Beacon> beacons;
     std::string myCall;
     bool verbose;
     bool debug;
@@ -40,19 +40,19 @@ namespace Config
         {
             if (s_section.length() < 7) return 0;
             secNum = std::stoi(s_section.substr(6));
-            if (secNum >= beacons.size()) beacons.resize(secNum + 1);
+            if (secNum >= Beacon::beacons.size()) Beacon::beacons.resize(secNum + 1);
 
             if (s_name.compare("text") == 0)
             {
-                beacons[secNum].text = s_value;
+                Beacon::beacons[secNum].text = s_value;
             }
             else if (s_name.compare("interval") == 0)
             {
-                beacons[secNum].interval = atoi(value);
+                Beacon::beacons[secNum].interval = atoi(value);
             }
             else if (s_name.compare("file") == 0)
             {
-                beacons[secNum].fileName = value;
+                Beacon::beacons[secNum].fileName = value;
             }
             else return 0;
         }

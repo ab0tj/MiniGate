@@ -12,6 +12,8 @@
 
 namespace Beacon
 {
+    std::vector<Beacon> beacons;
+
     unsigned int getSeqNum()
     {
         /* Return the next sequence number, or make one up if we don't know the last one */
@@ -95,7 +97,7 @@ namespace Beacon
                         i++;
                         break;
 
-                    case 'g':   // GPIO pin value (0 or 1)
+                    case 'g':   // GPIO pin value
                         ss << readGpio(param);
                         i += 2;
                         break;

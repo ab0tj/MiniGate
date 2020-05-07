@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <chrono>
+#include <thread>
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -13,6 +15,8 @@
 #include "beacon.h"
 #include "util.h"
 #include "sensor.h"
+
+void Daemon();
 
 void show_help(const char* cmdline)
 {
@@ -33,7 +37,8 @@ void show_help(const char* cmdline)
 
 int main(int argc, char **argv)
 {
-    int opt, do_init = 0, sensor = -1, pttStat = -1, scaled = 1, reset = 0, daemon = 0, do_beacon = -1;
+    int opt, do_init = 0, sensor = -1, pttStat = -1, scaled = 1, reset = 0, do_beacon = -1;
+    bool daemon = false;
     char *beaconText, *configFile = NULL;
 
     /* Parse command line arguments */
@@ -56,7 +61,7 @@ int main(int argc, char **argv)
                 break;
 
             case 'D':   // Daemon mode
-                daemon = 1;
+                daemon = true;
                 break;
 
             case 'i':   // Init
@@ -136,9 +141,24 @@ int main(int argc, char **argv)
     srand(time(NULL));
 
     /* Now we'll move on to doing what the user requested */
-    if (do_beacon >= 0) std::cout << Config::beacons[do_beacon].getString() << '\n';
+    if (daemon) Daemon();
+    if (do_beacon >= 0) std::cout << Beacon::beacons[do_beacon].getString() << '\n';
     if (do_beacon == -2) std::cout << Beacon::Parse(beaconText) << '\n';
     if (pttStat != -1) get_ptt_status(pttStat);
     if (sensor != -1) printf("%g\n", scaled ? fround(Sensor::sensors[sensor].Read(false), Sensor::sensors[sensor].precision) : Sensor::sensors[sensor].Read(true));
     return 0;
+}
+
+void Daemon()
+{
+    using namespace std::chrono_literals;
+    auto next = std::chrono::system_clock::now() + 1s;
+
+    for (;;)
+    {
+        
+
+        std::this_thread::sleep_until(next);
+        next += 1s;
+    }
 }

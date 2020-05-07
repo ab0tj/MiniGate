@@ -20,7 +20,6 @@ namespace Config
     };
 
     extern std::vector<PttConfig> ptt;
-    extern std::vector<Beacon::Beacon> beacons;
     extern std::string myCall;
     extern bool verbose;
     extern bool debug;

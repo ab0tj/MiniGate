@@ -14,6 +14,8 @@ namespace Beacon
             uint interval, timer;
             std::string getString() { return Parse(text); }
     };
+
+    extern std::vector<Beacon> beacons;
 }
 
 #endif
