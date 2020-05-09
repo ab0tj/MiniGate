@@ -22,7 +22,7 @@ namespace Beacon
         uint8_t num = rand();
 
         /* Open temp file */
-        FILE* tempFile = fopen((Config::tmpFolder + "/sequence").c_str(), "rb");
+        FILE* tempFile = fopen(Config::seqFile.c_str(), "rb");
         if (tempFile != NULL)
         {
             result = fread(&buffer, sizeof(uint8_t), 1, tempFile);
@@ -32,10 +32,10 @@ namespace Beacon
         }
 
         /* Save the next number to the temp file */
-        tempFile = fopen((Config::tmpFolder + "/sequence").c_str(), "wb");
+        tempFile = fopen(Config::seqFile.c_str(), "wb");
         if (tempFile == NULL)
         {
-            fprintf(stderr, "Could not open %s for writing!", (Config::tmpFolder + "/sequence").c_str());
+            fprintf(stderr, "Could not open %s for writing!", Config::seqFile.c_str());
             exit(1);
         }
 

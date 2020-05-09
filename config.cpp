@@ -46,14 +46,6 @@ namespace Config
             {
                 Beacon::beacons[secNum].text = s_value;
             }
-            else if (s_name.compare("interval") == 0)
-            {
-                Beacon::beacons[secNum].interval = atoi(value);
-            }
-            else if (s_name.compare("file") == 0)
-            {
-                Beacon::beacons[secNum].fileName = value;
-            }
             else return 0;
         }
 

@@ -10,7 +10,7 @@
 namespace Config
 {
     const float version = 1.00;
-    const std::string tmpFolder{"/tmp/minigate"};
+    const std::string seqFile{"/tmp/minigate.seq"};
 
     class PttConfig
     {

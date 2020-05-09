@@ -4,11 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <chrono>
-#include <thread>
-#include <errno.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include "ini.h"
 #include "config.h"
 #include "mcu.h"
@@ -25,7 +20,6 @@ void show_help(const char* cmdline)
     printf("  -B <string>\tGenerate APRS beacon string from command line\n");
     printf("  -c <file>\tSpecify config file (default is /etc/minigate.conf)\n");
     printf("  -d\t\tPrint debugging info\n");
-    printf("  -D\t\tRun as a daemon\n");
     printf("  -i\t\tInitialize MCU\n");
     printf("  -r\t\tRaw sensor output\n");
     printf("  -p <ptt>\tPrint PTT status\n");
@@ -38,7 +32,6 @@ void show_help(const char* cmdline)
 int main(int argc, char **argv)
 {
     int opt, do_init = 0, sensor = -1, pttStat = -1, scaled = 1, reset = 0, do_beacon = -1;
-    bool daemon = false;
     char *beaconText, *configFile = NULL;
 
     /* Parse command line arguments */
@@ -47,7 +40,7 @@ int main(int argc, char **argv)
         show_help(argv[0]);
         return 1;
     }
-    while((opt = getopt(argc, argv, "b:B:c:dDirp:s:vx")) != -1)
+    while((opt = getopt(argc, argv, "b:B:c:dirp:s:vx")) != -1)
     {
         switch(opt)
         {
@@ -58,10 +51,6 @@ int main(int argc, char **argv)
 
             case 'd':   // Debug
                 Config::debug = true;
-                break;
-
-            case 'D':   // Daemon mode
-                daemon = true;
                 break;
 
             case 'i':   // Init
@@ -128,37 +117,13 @@ int main(int argc, char **argv)
 
     usleep(100000); // Let MCU's SPI counter reset
 
-    /* Let's do some other initialization things in the mean time... */
-    /* Create the temp dir if it doesn't exist */
-    mode_t dirMode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
-    if ((mkdir(Config::tmpFolder.c_str(), dirMode) != 0) && (errno != EEXIST))
-    {
-        fprintf(stderr, "Could not create temp folder! (%d)\n", errno);
-        exit(1);
-    }
-
     /* Seed the RNG */
     srand(time(NULL));
 
     /* Now we'll move on to doing what the user requested */
-    if (daemon) Daemon();
     if (do_beacon >= 0) std::cout << Beacon::beacons[do_beacon].getString() << '\n';
     if (do_beacon == -2) std::cout << Beacon::Parse(beaconText) << '\n';
     if (pttStat != -1) get_ptt_status(pttStat);
     if (sensor != -1) printf("%g\n", scaled ? fround(Sensor::sensors[sensor].Read(false), Sensor::sensors[sensor].precision) : Sensor::sensors[sensor].Read(true));
     return 0;
-}
-
-void Daemon()
-{
-    using namespace std::chrono_literals;
-    auto next = std::chrono::system_clock::now() + 1s;
-
-    for (;;)
-    {
-        
-
-        std::this_thread::sleep_until(next);
-        next += 1s;
-    }
 }

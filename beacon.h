@@ -10,8 +10,7 @@ namespace Beacon
     class Beacon
     {
         public:
-            std::string text, fileName;
-            uint interval, timer;
+            std::string text;
             std::string getString() { return Parse(text); }
     };
 
