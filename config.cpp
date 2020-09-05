@@ -86,15 +86,27 @@ namespace Config
                 {
                     Sensor::sensors[secNum].type = Sensor::Sensor_File;
                 }
-                else if (s_value.compare("hwmon") == 0)
-                {
-                    Sensor::sensors[secNum].type = Sensor::Sensor_HWMon;
-                }
                 else Sensor::sensors[secNum].type = Sensor::Sensor_None;
             }
-            else if (s_name.compare("unit") == 0)
+            else if (s_name.compare("raw_offset") == 0)
             {
-                Sensor::sensors[secNum].unit = value[0];
+                Sensor::sensors[secNum].rawOffset = atof(value);
+            }
+            else if (s_name.compare("min_raw_val") == 0)
+            {
+                Sensor::sensors[secNum].minRawVal = atof(value);
+            }
+            else if (s_name.compare("max_raw_val") == 0)
+            {
+                Sensor::sensors[secNum].maxRawVal = atof(value);
+            }
+            else if (s_name.compare("zero_offset") == 0)
+            {
+                Sensor::sensors[secNum].zeroOffset = atof(value);
+            }
+            else if (s_name.compare("max_read_attempts") == 0)
+            {
+                Sensor::sensors[secNum].maxReadAttempts = atoi(value);
             }
             else return 0;
         }

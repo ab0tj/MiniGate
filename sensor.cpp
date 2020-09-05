@@ -37,37 +37,34 @@ namespace Sensor
     float Sensor::Read(bool raw)
     {
         float val;
+        uint attempt = 1;
 
-        switch(type)
+        do
         {
-            case Sensor_MCU_ADC:
-                val = read_mcu_adc(mcuAdcNum);
-                break;
+            switch(type)
+            {
+                case Sensor_MCU_ADC:
+                    val = read_mcu_adc(mcuAdcNum);
+                    break;
 
-            case Sensor_File:
-                val = readFile(fileName.c_str());
-                break;
+                case Sensor_File:
+                    val = readFile(fileName.c_str());
+                    break;
 
-            case Sensor_HWMon:
-                val = readFile(fileName.c_str());
+                default:
+                    return 0;
+            }
 
-                if (!raw)
-                {
-                    if (unit == 'F') val = (val * (9.0 / 5.0)) + 32000;
-                    else if (unit == 'K') val += 273150;
-
-                    return val / 1000;
-                }
-                return val;
-
-            default:
-                return 0;
+            if (attempt++ >= maxReadAttempts) break;
         }
+        while (val < minRawVal || val > maxRawVal); /* Keep trying to read until we get a sane value or try too many times */
 
         if (!raw)
         {
-            val += offset;
+            val += rawOffset;
+            if (abs(val) < zeroOffset) val = 0; /* If the value is close enough to 0, consider it to be 0 */
             val *= scale;
+            val += offset;
         }
 
         return val;

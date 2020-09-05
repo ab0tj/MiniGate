@@ -3,18 +3,20 @@
 
 namespace Sensor
 {
-    enum SensorType { Sensor_None, Sensor_MCU_ADC, Sensor_File, Sensor_HWMon };
+    enum SensorType { Sensor_None, Sensor_MCU_ADC, Sensor_File };
 
     class Sensor
     {
         public:
             float scale;
-            float offset;
+            float offset, rawOffset;
+            float minRawVal, maxRawVal;
+            float zeroOffset;
             unsigned int precision;
             std::string fileName;
+            uint maxReadAttempts;
             uint mcuAdcNum;
             SensorType type;
-            char unit;
             float Read(bool raw);
     };
 
