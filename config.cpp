@@ -108,6 +108,10 @@ namespace Config
             {
                 Sensor::sensors[secNum].maxReadAttempts = atoi(value);
             }
+            else if (s_name.compare("allow_negative") == 0)
+            {
+                Sensor::sensors[secNum].allowNegative = (strcmp(value, "false") != 0);
+            }
             else return 0;
         }
 

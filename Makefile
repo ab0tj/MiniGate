@@ -1,6 +1,7 @@
-C=g++
-CFLAGS=-c -Wall
+CXX=g++
+CXXFLAGS=-c -Wall
 OBJS=main.o ini.o config.o mcu.o beacon.o util.o sensor.o
+DEPS = ${OBJS:.o=.d}
 
 all: minigate
 
@@ -8,25 +9,12 @@ install: all
 	/usr/bin/install -D --mode=755 minigate /usr/local/bin/minigate
 
 minigate: $(OBJS)
-	$(C) $(OBJS) -lwiringPi -lcrypt -lrt -pthread -o minigate
+	$(CXX) -o $@ $^ -lwiringPi -lcrypt -lrt -pthread
 
-main.o: main.cpp
-	$(C) $(CFLAGS) -o main.o main.cpp
+gpiostat: gpiostat.cpp
+	$(CXX) gpiostat.cpp -O2 -lwiringPi -lcrypt -lrt -pthread -o gpiostat
 
-config.o: config.cpp
-	$(C) $(CFLAGS) -o config.o config.cpp
-
-mcu.o: mcu.cpp
-	$(C) $(CFLAGS) -o mcu.o mcu.cpp
-
-beacon.o: beacon.cpp
-	$(C) $(CFLAGS) -o beacon.o beacon.cpp
-
-util.o: util.cpp
-	$(C) $(CFLAGS) -o util.o util.cpp
-
-sensor.o: sensor.cpp
-	$(C) $(CFLAGS) -o sensor.o sensor.cpp
+-include $(DEPS)
 
 clean:
-	rm -f minigate $(OBJS)
+	rm -f minigate $(OBJS) $(DEPS)

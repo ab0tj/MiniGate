@@ -65,6 +65,7 @@ namespace Sensor
             if (abs(val) < zeroOffset) val = 0; /* If the value is close enough to 0, consider it to be 0 */
             val *= scale;
             val += offset;
+            if (!allowNegative && val < 0) val = 0;
         }
 
         return val;

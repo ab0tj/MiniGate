@@ -17,6 +17,7 @@ namespace Sensor
             uint maxReadAttempts;
             uint mcuAdcNum;
             SensorType type;
+            bool allowNegative;
             float Read(bool raw);
     };
 
