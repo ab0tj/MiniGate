@@ -1,0 +1,122 @@
+[station]
+mycall = N0CALL
+lat = 0.0N
+lon = 0.0W
+
+[ptt0]
+enabled = true
+timeout = 16
+
+[sensor0]
+type = victron
+#mcu_adc_num = 0
+#scale = 0.0202894
+scale = 0.001
+precision = 2
+value_name = V
+allow_negative = false
+sample_rate = 1
+avg = 60
+
+[sensor1]
+type = victron
+#mcu_adc_num = 1
+#scale = 0.0201595
+scale = 0.001
+precision = 2
+value_name = I
+allow_negative = true
+sample_rate = 1
+avg = 60
+
+[sensor2]
+type = victron
+scale = 1
+precision = 0
+value_name = PPV
+allow_negative = false
+sample_rate = 1
+avg = 60
+
+[sensor3]
+type = file
+precision = 1
+file = /sys/class/hwmon/hwmon0/temp1_input
+scale = 0.0018
+offset = 32
+sample_rate = 10
+avg = 60
+
+[sensor4]
+type = file
+precision = 1
+file = /sys/devices/virtual/thermal/thermal_zone0/temp
+scale = 0.0018
+offset = 32
+sample_rate = 10
+avg = 60
+
+[beacon_file]
+dir = /tmp/minigate/
+
+[beacon0]
+text = >~zzgithub.com/ab0tj/MiniGate
+file = status
+interval = 0
+
+[beacon1]
+text = :~C:PARM.Battery,Battery,Solar,Board,CPU,PA0,PA1,NET
+file = parm
+interval = 0
+
+[beacon2]
+text = :~C:UNIT.Volts,Amps,Watts,deg.F,deg.F,hi,hi,OK
+file = unit
+interval = 0
+
+[beacon3]
+text = :~C:EQNS.0,1,0,0,1,0,0,1,0
+file = eqns
+interval = 0
+
+[beacon4]
+text = :~C:BITS.11111111,OrangeGate
+file = bits
+interval = 0
+
+[beacon5]
+text = T#~s,~a0,~a1,~a2,~a3,~a4,~g0~g1~p00000MiniGate
+file = telemetry
+interval = 900
+
+[beacon6]
+text = Batt:~a0V,~a1A Solar:~a2W Temps:~a3F,~a4F
+file = sensors
+interval = 60
+
+[beacon7]
+text = ~W
+file = wx
+interval = 120
+
+[weather]
+source = hass
+
+[hass_wx]
+max_age = 900
+api_url = https://hassio.example.com/api/
+token = xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+wind_dir = sensor.wind_direction
+wind_spd = sensor.wind_speed
+wind_gust = sensor.wind_gust
+temp = sensor.outdoor_temperature
+rain_hr = sensor.hour_rain
+rain_24h = sensor.24_hour_rain
+rain_day = sensor.day_rain
+humidity = sensor.outdoor_humidity
+press = sensor.altimeter
+luminosity = sensor.solar_radiation
+timestamp = sensor.weewx_timestamp
+
+[victron]
+serial_port = /dev/ttyS2

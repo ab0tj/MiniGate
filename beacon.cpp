@@ -1,62 +1,62 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <time.h>
 #include <string>
 #include <sstream>
 #include <iostream>
+#include <fstream>
 #include <iomanip>
+#include <experimental/filesystem>
+#include <string.h> // strerror
 #include "config.h"
 #include "util.h"
 #include "sensor.h"
 #include "mcu.h"
+#include "weather.h"
+#include "beacon.h"
 
 namespace Beacon
 {
     std::vector<Beacon> beacons;
+    std::string beaconFilePath = defaultBeaconFilePath;
 
-    unsigned int getSeqNum()
+    void Init()
     {
-        /* Return the next sequence number, or make one up if we don't know the last one */
-        uint8_t buffer;
-        size_t result;
-        uint8_t num = rand();
+        /* Clean up path variable */
+        if (beaconFilePath.length() == 0) beaconFilePath = defaultBeaconFilePath;
+        if (beaconFilePath.back() != '/') beaconFilePath.append("/");
 
-        /* Open temp file */
-        FILE* tempFile = fopen(Config::seqFile.c_str(), "rb");
-        if (tempFile != NULL)
+        /* Create beacon directory if it does not already exist */
+        if (!std::experimental::filesystem::is_directory(beaconFilePath))
         {
-            result = fread(&buffer, sizeof(uint8_t), 1, tempFile);
-            if (result) num = buffer;
-
-            fclose(tempFile);
+            bool res = std::experimental::filesystem::create_directories(beaconFilePath);
+            if (!res)
+            {
+                std::cerr << "Failed to create beacon directory " << beaconFilePath << ": " << strerror(errno) << std::endl;
+                exit(1);
+            }
         }
-
-        /* Save the next number to the temp file */
-        tempFile = fopen(Config::seqFile.c_str(), "wb");
-        if (tempFile == NULL)
-        {
-            fprintf(stderr, "Could not open %s for writing!", Config::seqFile.c_str());
-            exit(1);
-        }
-
-        /* Increment and write it */
-        buffer = num + 1;
-        fwrite(&buffer, sizeof(char), 1, tempFile);
-        fclose(tempFile);
-
-        return num;
     }
 
-    std::string getZulu()
+    unsigned int GetSeqNum()
     {
-        char* zulu = (char*)calloc(1, 8);
+        static unsigned int num;
+        unsigned int ret = num;
+        num++;
+        if (num > 999) num = 0;
+        return ret;
+    }
+
+    std::string GetZulu(bool includeMonth)
+    {
+        char* zulu = (char*)calloc(1, 10);
         time_t rawtime;
         struct tm* timeinfo;
         time(&rawtime);
         timeinfo = gmtime(&rawtime);
-        strftime(zulu, 8, "%d%H%Mz", timeinfo);
 
-        std::string retVal = std::string(zulu);
+        if (includeMonth) strftime(zulu, 9, "%m%d%H%M", timeinfo);
+        else strftime(zulu, 7, "%d%H%M", timeinfo);
+
+        const std::string retVal = std::string(zulu);
         free(zulu);
 
         return retVal;
@@ -77,8 +77,8 @@ namespace Beacon
                 int param = text[i+2] - '0';
                 switch (text[i+1])
                 {
-                    case 'a':   // Scaled sensor value
-                        ss << std::setprecision(Sensor::sensors[param].precision) << Sensor::sensors[param].Read(false);
+                    case 'a':   // Scaled and averaged sensor value
+                        ss << std::setprecision(Sensor::sensors[param].precision) << Sensor::Value(param);
                         i += 2;
                         break;
 
@@ -98,7 +98,7 @@ namespace Beacon
                         break;
 
                     case 'g':   // GPIO pin value
-                        ss << readGpio(param);
+                        ss << MCU::ReadGPIO(param);
                         i += 2;
                         break;
 
@@ -108,13 +108,36 @@ namespace Beacon
                         break;
 
                     case 's':   // Sequence number
-                        ss << std::setfill('0') << std::setw(3) << getSeqNum();
+                        ss << std::setfill('0') << std::setw(3) << GetSeqNum();
                         ss << std::setfill(' ') << std::setw(0);
                         i++;
                         break;
 
-                    case 'z':   // Timestamp
-                        ss << getZulu();
+                    case 'w':   // Positionless weather report
+                    {
+                        const std::string wx = Weather::GetReportStr(true);
+                        if (wx.length() == 0) return "";
+                        ss << wx;
+                        i++;
+                        break;
+                    }
+
+                    case 'W':   // Weather report as part of a position packet
+                    {
+                        const std::string wx = Weather::GetReportStr(false);
+                        if (wx.length() == 0) return "";
+                        ss << wx;
+                        i++;
+                        break;
+                    }
+
+                    case 'z':   // Timestamp, DHM
+                        ss << GetZulu(false);
+                        i++;
+                        break;
+
+                    case 'Z':   // Timestamp, MDHM
+                        ss << GetZulu(true);
                         i++;
                         break;
 
@@ -130,5 +153,22 @@ namespace Beacon
             else ss << text[i];
         }
         return ss.str();
+    }
+
+    void Beacon::Write()
+    {
+        std::ofstream f;
+        const std::string fname = beaconFilePath + fileName;
+        f.open(fname + ".tmp", std::ofstream::out | std::ofstream::trunc);
+        if (!f)
+        {
+            std::cerr << "Opening beacon file " << fname << ".tmp filed: " << strerror(errno) << std::endl;
+            exit (1);
+        }
+
+        f << Parse(text);
+        f.close();
+
+        std::experimental::filesystem::rename(fname + ".tmp", fname);
     }
 }

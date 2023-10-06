@@ -1,21 +1,28 @@
 #include <string.h>
 #include <stdlib.h>
+#include <iostream>
 #include "config.h"
 #include "beacon.h"
+#include "weather.h"
+#include "hass_wx.h"
+#include "victron.h"
 
 namespace Config
 {
     std::vector<PttConfig> ptt;
     std::string myCall;
+    std::string myLat, myLon;
     bool verbose;
     bool debug;
 
     int Parse(void* user, const char* section, const char* name, const char* value)
     {
-        std::string s_section = std::string(section);
-        std::string s_name = std::string(name);
-        std::string s_value = std::string(value);
+        std::string s_section(section);
+        std::string s_name(name);
+        std::string s_value(value);
         uint secNum;
+
+        if (debug) std::cout << "Config parse: " << section << ',' << name << ',' << value << std::endl;
 
         /* PTT config */
         if (s_section.substr(0, 3).compare("ptt") == 0)
@@ -34,6 +41,15 @@ namespace Config
             }
             else return 0;
         }
+
+        /* Beacon file config */
+        else if (s_section.compare("beacon_file") == 0)
+        {
+            if (s_name.compare("dir") == 0)
+            {
+                Beacon::beaconFilePath = s_value;
+            }
+        }
         
         /* Beacon config */
         else if (s_section.substr(0, 6).compare("beacon") == 0)
@@ -45,6 +61,14 @@ namespace Config
             if (s_name.compare("text") == 0)
             {
                 Beacon::beacons[secNum].text = s_value;
+            }
+            else if (s_name.compare("file") == 0)
+            {
+                Beacon::beacons[secNum].fileName = s_value;
+            }
+            else if (s_name.compare("interval") == 0)
+            {
+                Beacon::beacons[secNum].interval = atoi(value);
             }
             else return 0;
         }
@@ -68,9 +92,9 @@ namespace Config
             {
                 Sensor::sensors[secNum].offset = atof(value);
             }
-            else if (s_name.compare("file") == 0)
+            else if (s_name.compare("file") == 0 || s_name.compare("value_name") == 0)
             {
-                Sensor::sensors[secNum].fileName = value;
+                Sensor::sensors[secNum].locator = value;
             }
             else if (s_name.compare("mcu_adc_num") == 0)
             {
@@ -85,6 +109,10 @@ namespace Config
                 else if (s_value.compare("file") == 0)
                 {
                     Sensor::sensors[secNum].type = Sensor::Sensor_File;
+                }
+                else if (s_value.compare("victron") == 0)
+                {
+                    Sensor::sensors[secNum].type = Sensor::Sensor_Victron;
                 }
                 else Sensor::sensors[secNum].type = Sensor::Sensor_None;
             }
@@ -112,6 +140,14 @@ namespace Config
             {
                 Sensor::sensors[secNum].allowNegative = (strcmp(value, "false") != 0);
             }
+            else if (s_name.compare("sample_rate") == 0)
+            {
+                Sensor::sensors[secNum].sampleRate = atoi(value);
+            }
+            else if (s_name.compare("avg") == 0)
+            {
+                Sensor::sensors[secNum].avgSamples = atoi(value);
+            }
             else return 0;
         }
 
@@ -122,7 +158,96 @@ namespace Config
             {
                 myCall = value;
             }
+            else if (s_name.compare("lat") == 0)
+            {
+                myLat = value;
+            }
+            else if (s_name.compare("lon") == 0)
+            {
+                myLon = value;
+            }
             else return 0;
+        }
+
+        else if (s_section.compare("weather") == 0)
+        {
+            if (s_name.compare("source") == 0)
+            {
+                if (s_value.compare("hass") == 0) Weather::source = Weather::WX_Hass;
+                else if (s_value.compare("mqtt") == 0) Weather::source = Weather::WX_MQTT;
+                else Weather::source = Weather::WX_None;
+            }
+        }
+
+        else if (s_section.compare("hass_wx") == 0)
+        {
+            if (s_name.compare("api_url") == 0)
+            {
+                std::string s = value;
+                if (s.length() > 0 && s.back() == '/') s.erase(s.end() - 1);
+                HassWx::apiUrl = s;
+            }
+            else if (s_name.compare("token") == 0)
+            {
+                HassWx::apiToken = value;
+            }
+            else if (s_name.compare("wind_dir") == 0)
+            {
+                HassWx::windDirSensor = value;
+            }
+            else if (s_name.compare("wind_spd") == 0)
+            {
+                HassWx::windSpdSensor = value;
+            }
+            else if (s_name.compare("wind_gust") == 0)
+            {
+                HassWx::windGustSensor = value;
+            }
+            else if (s_name.compare("temp") == 0)
+            {
+                HassWx::tempSensor = value;
+            }
+            else if (s_name.compare("rain_hr") == 0)
+            {
+                HassWx::rainHrSensor = value;
+            }
+            else if (s_name.compare("rain_24h") == 0)
+            {
+                HassWx::rain24hSensor = value;
+            }
+            else if (s_name.compare("day_rain") == 0)
+            {
+                HassWx::rainDaySensor = value;
+            }
+            else if (s_name.compare("humidity") == 0)
+            {
+                HassWx::humSensor = value;
+            }
+            else if (s_name.compare("press") == 0)
+            {
+                HassWx::pressSensor = value;
+            }
+            else if (s_name.compare("luminosity") == 0)
+            {
+                HassWx::lumSensor = value;
+            }
+            else if (s_name.compare("timestamp") == 0)
+            {
+                HassWx::timeStampSensor = value;
+            }
+            else if (s_name.compare("max_age") == 0)
+            {
+                HassWx::maxDataAge = atoi(value);
+            }
+            else return 0;
+        }
+
+        else if (s_section.compare("victron") == 0)
+        {
+            if (s_name.compare("serial_port") == 0)
+            {
+                Sensor::victronSerialPort = value;
+            }
         }
 
         else return 0;

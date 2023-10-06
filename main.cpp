@@ -1,91 +1,49 @@
 #include <iostream>
-#include <stdio.h>
 #include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
+#include <chrono>
+#include <thread>
 #include "ini.h"
 #include "config.h"
-#include "mcu.h"
 #include "beacon.h"
-#include "util.h"
 #include "sensor.h"
+#include "mcu.h"
+#include "print.h"
+#include "weather.h"
 
 void Daemon();
 
+Print::Buffer debugPrint;
+void DebugPrint(const std::string& line) { debugPrint.Add(line); }
+
 void show_help(const char* cmdline)
 {
-    printf("Usage: %s [options]\n", cmdline);
-    printf("  -b <num>\tGenerate APRS beacon string from config\n");
-    printf("  -B <string>\tGenerate APRS beacon string from command line\n");
-    printf("  -c <file>\tSpecify config file (default is /etc/minigate.conf)\n");
-    printf("  -d\t\tPrint debugging info\n");
-    printf("  -i\t\tInitialize MCU\n");
-    printf("  -r\t\tRaw sensor output\n");
-    printf("  -p <ptt>\tPrint PTT status\n");
-    printf("  -s <num>\tRead sensor\n");
-    printf("  -v\t\tBe verbose\n");
-    printf("  -x\t\tReset MCU\n");
-    printf("\n");
+    std::cout << "Usage: " << cmdline << " [options]" << std::endl;
+    std::cout << "  -c <file>\tSpecify config file (default is " << Config::defaultConfigFile << ')' << std::endl;
+    std::cout << "  -d\t\tPrint debugging info (implies -f)" << std::endl;
+    std::cout << "  -f\t\tRun in foreground" << std::endl;
 }
 
 int main(int argc, char **argv)
 {
-    int opt, do_init = 0, sensor = -1, pttStat = -1, scaled = 1, reset = 0, do_beacon = -1;
-    char *beaconText, *configFile = NULL;
+    int opt;
+    bool foreground = false;
+    std::string configFile = Config::defaultConfigFile;
 
     /* Parse command line arguments */
-    if (argc == 1)
-    {
-        show_help(argv[0]);
-        return 1;
-    }
-    while((opt = getopt(argc, argv, "b:B:c:dirp:s:vx")) != -1)
+    while((opt = getopt(argc, argv, "c:d")) != -1)
     {
         switch(opt)
         {
-            case 'v':   // Verbose
-                printf("Minigate Utility v%.02f\n\n", Config::version);
-                Config::verbose = true;
-                break;
-
             case 'd':   // Debug
                 Config::debug = true;
-                break;
-
-            case 'i':   // Init
-                reset = 1;
-                do_init = 1;
-                break;
-
-            case 's':   // Read sensor
-                sensor = atoi(optarg);
-                break;
-
-            case 'p':   // Get PTT status
-                pttStat = atoi(optarg);
-                break;
-
-            case 'b':   // Generate an APRS status beacon string from config values
-                do_beacon = atoi(optarg);
-                if (do_beacon < 0) do_beacon = -1;
-                break;
-
-            case 'B':   // Generate beacon text from command-line supplied string
-                do_beacon = -2;
-                beaconText = optarg;
                 break;
 
             case 'c':   // Use a different config file
                 configFile = optarg;
                 break;
 
-            case 'r':   // Raw sensor output
-                scaled = 0;
-                break;
-
-            case 'x':   // Just reset the MCU
-                reset = 1;
+            case 'f':   // Run in foreground
+                foreground = true;
                 break;
 
             default:
@@ -94,36 +52,63 @@ int main(int argc, char **argv)
         }
     }
 
-    /* Do initialization things */
-    initSpi();
-
-    if (configFile == NULL)
+    /* Parse config file */
+    if (ini_parse(configFile.c_str(), Config::Parse, NULL) < 0)
     {
-        configFile = (char*)malloc(20);
-        strcpy(configFile, "/etc/minigate.ini");
-    }
-
-    if (ini_parse(configFile, Config::Parse, NULL) < 0)
-    {
-        fprintf(stderr, "Could not load %s\n", configFile);
+        std::cerr << "Could not load " << configFile << std::endl;
         return 1;
     }
 
-    if (reset) resetMcu();
+    /* Do initialization things */
+    MCU::Init(DebugPrint);
+    Sensor::Init(DebugPrint);
+    Weather::Init(DebugPrint);
+    Beacon::Init();
 
-    initMcu();
+    /* Write initial beacon files */
+    auto next = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    std::this_thread::sleep_until(next);
 
-    if (do_init) initPtt();
+    for (Beacon::Beacon& b : Beacon::beacons)
+    {
+        b.Write();
+        b.counter = 0;
+    }
 
-    usleep(100000); // Let MCU's SPI counter reset
+    /* Now we'll move on to the main program loop */
+    unsigned int pttCheckCounter = 0;
+    for (;;)
+    {
+        next += std::chrono::seconds(1);
+        std::this_thread::sleep_until(next);
 
-    /* Seed the RNG */
-    srand(time(NULL));
+        /* Print any debug messages in the queue */
+        if (Config::debug) debugPrint.Dump();
 
-    /* Now we'll move on to doing what the user requested */
-    if (do_beacon >= 0) std::cout << Beacon::beacons[do_beacon].getString() << '\n';
-    if (do_beacon == -2) std::cout << Beacon::Parse(beaconText) << '\n';
-    if (pttStat != -1) get_ptt_status(pttStat);
-    if (sensor != -1) printf("%g\n", scaled ? fround(Sensor::sensors[sensor].Read(false), Sensor::sensors[sensor].precision) : Sensor::sensors[sensor].Read(true));
+        /* MCU watchdog */
+        if (pttCheckCounter++ >= MCU::pttCheckInterval)
+        {
+            bool needsReset = false;
+            for (unsigned int i = 0; i < MCU::pttChannels; i++)
+            {
+                MCU::PTTStatus ps = MCU::GetPTTStatus(i);
+                if (ps.initialized != ps.enabled) needsReset = true;
+            }
+            if (needsReset) MCU::InitMCU();
+            pttCheckCounter = 0;
+        }
+
+        /* Update beacon files */
+        for (Beacon::Beacon& b : Beacon::beacons)
+        {
+            if (b.interval != 0 && ++b.counter >= b.interval)
+            {
+                b.Write();
+                b.counter = 0;
+            }
+        }
+    }
+
+    // Done.
     return 0;
 }

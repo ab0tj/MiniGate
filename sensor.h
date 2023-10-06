@@ -1,9 +1,8 @@
-#ifndef INC_SENSOR_H
-#define INC_SENSOR_H
+#pragma once
 
 namespace Sensor
 {
-    enum SensorType { Sensor_None, Sensor_MCU_ADC, Sensor_File };
+    enum SensorType { Sensor_None, Sensor_MCU_ADC, Sensor_File, Sensor_Victron, Sensor_MQTT };
 
     class Sensor
     {
@@ -13,15 +12,19 @@ namespace Sensor
             float minRawVal, maxRawVal;
             float zeroOffset;
             unsigned int precision;
-            std::string fileName;
+            std::string locator;
             uint maxReadAttempts;
             uint mcuAdcNum;
             SensorType type;
             bool allowNegative;
+            unsigned int sampleRate;
+            unsigned int avgSamples;
             float Read(bool raw);
     };
 
-    extern std::vector<Sensor> sensors;
-}
+    void Init(void (*debugFunc)(const std::string&));
+    float Value(const int s);
 
-#endif
+    extern std::vector<Sensor> sensors;
+    extern std::string victronSerialPort;
+}
